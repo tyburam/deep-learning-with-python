@@ -3,12 +3,14 @@ import numpy as np
 from .layers import Layer
 from .losses import LossFactory
 from .optimizers import OptimizerFactory
+from .metrics import MetricsFactory
 
 class Network:
     def __init__(self):
         self.layers = []
         self.loss = None
         self.metrics = []
+        self.metric_names = ()
         
     def append(self, layer):
         assert isinstance(layer, Layer)
@@ -16,7 +18,8 @@ class Network:
         
     def compile(self, optimizer='sgd', loss='crossentropy', metrics=[]):
         self.loss = LossFactory().build(loss)
-        self.metrics = []
+        self.metric_names = list(set(metrics))
+        self.metrics = MetricsFactory().build(self.metric_names)
 
         for i in range(len(self.layers)):
             self.layers[i].set_optimizer(OptimizerFactory().build(optimizer))
@@ -44,7 +47,7 @@ class Network:
         logits = self.forward(X)[-1]
         return logits.argmax(axis=-1)
     
-    def epoch(self, X, y):
+    def epoch(self, X, y, backprop=True):
         """
         Train your network on a given batch of X and y.
         You first need to run forward to get all layer activations.
@@ -62,17 +65,30 @@ class Network:
         loss_val = self.loss.calculate(logits, y)
         loss_grad = self.loss.gradient(logits, y)
 
-        grad = loss_grad
-        for i in range(len(self.layers)-1,-1,-1):
-            grad = self.layers[i].backward(layer_inputs[i], grad)
+        if backprop:
+            grad = loss_grad
+            for i in range(len(self.layers)-1,-1,-1):
+                grad = self.layers[i].backward(layer_inputs[i], grad)
 
         return np.mean(loss_val)
     
     def fit(self, epochs, X, y, X_val=None, y_val=None):
-        train_losses, val_losses = [], []
+        history = {'loss': [], 'val_loss': []}
         for _ in range(epochs):
-            train_losses.append(self.epoch(X, y))
-        return train_losses
+            history['loss'].append(self.epoch(X, y))
+            if X_val is not None:
+                history['val_loss'].append(self.evaluate(X_val, y_val))
+
+            if self.metrics is not None:
+                for i in range(len(self.metrics)):
+                    if self.metric_names[i] not in history:
+                        history[self.metric_names[i]] = []
+                        history['val_' + self.metric_names[i]] = []
+                    history[self.metric_names[i]].append(self.metrics[i](self.predict(X), y))
+                    if X_val is not None:
+                        history['val_' + self.metric_names[i]].append(self.metrics[i](self.predict(X_val), y_val))
+
+        return history
     
     def evaluate(self, X, y):
-        return self.epoch(X, y)
+        return self.epoch(X, y, False)

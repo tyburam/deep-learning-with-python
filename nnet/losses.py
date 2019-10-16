@@ -2,6 +2,8 @@ import numpy as np
 
 class LossFactory:
     def build(self, name):
+        if name == 'binary_crossentropy':
+            return BinaryCrossentropy()
         return SoftmaxCrossentropyWithLogitsLoss()
 
 class LossFunction:
@@ -32,3 +34,11 @@ class SoftmaxCrossentropyWithLogitsLoss(LossFunction):
         ones_for_answers[np.arange(len(predicted)), target] = 1    
         softmax = np.exp(predicted) / np.exp(predicted).sum(axis=-1,keepdims=True)    
         return (- ones_for_answers + softmax) / predicted.shape[0]
+
+
+class BinaryCrossentropy(LossFunction):
+    def calculate(self, predicted, target):
+        return -np.sum(target * np.log(predicted)) / predicted.shape[0]
+
+    def gradient(self, predicted, target):
+        return (predicted - target) / (predicted * (predicted - np.ones_like(predicted)))
