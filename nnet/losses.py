@@ -41,4 +41,4 @@ class BinaryCrossentropy(LossFunction):
         return -np.sum(target * np.log(predicted)) / predicted.shape[0]
 
     def gradient(self, predicted, target):
-        return (predicted - target) / (predicted * (predicted - np.ones_like(predicted)))
+        return -target.reshape(target.shape[0], 1) / predicted
