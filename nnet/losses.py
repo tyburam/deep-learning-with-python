@@ -38,7 +38,9 @@ class SoftmaxCrossentropyWithLogitsLoss(LossFunction):
 
 class BinaryCrossentropy(LossFunction):
     def calculate(self, predicted, target):
-        return -np.sum(target * np.log(predicted)) / predicted.shape[0]
+        def sigmoid(x):
+            return 1. / (1. + np.exp(-x))    
+        return (target * -np.log(sigmoid(predicted)) + (1 - target) * -np.log(1 - sigmoid(predicted)))
 
     def gradient(self, predicted, target):
         return -target.reshape(target.shape[0], 1) / predicted
